@@ -1,9 +1,8 @@
-import os, gc
+import os
 import torch
 import torch.utils.data
 import numpy as np
 import json
-data_path = os.path.join('..', 'data')
 
 class MyDataset(torch.utils.data.Dataset): 
     def __init__(self, instances):
@@ -33,34 +32,44 @@ def data2index(data_x, word2index, sememe2index, lexname2index, rootaffix2index,
         else:
             pass #print(instance['word'], instance['definitions']) # some is null
     return data_x_idx
-        
-def load_data(frequency):
+
+
+def json_load(json_file: str):
+    with open(json_file, 'r') as f:
+        return json.load(f)
+
+def lines_load(text_file: str):
+    with open(text_file, 'r') as f:
+        return f.readlines()
+
+
+def load_data(data_path: str, frequency: int):
     print('Loading dataset...')
-    data_train = json.load(open(os.path.join(data_path, 'data_train.json')))
-    data_dev = json.load(open(os.path.join(data_path, 'data_dev.json')))
-    data_test_500_rand1_seen = json.load(open(os.path.join(data_path, 'data_test_500_rand1_seen.json')))
-    data_test_500_rand1_unseen = json.load(open(os.path.join(data_path, 'data_test_500_rand1_unseen.json'))) #data_test_500_others
-    data_defi_c = json.load(open(os.path.join(data_path, 'data_defi_c.json')))
-    data_desc_c = json.load(open(os.path.join(data_path, 'data_desc_c.json')))
-    lines = open(os.path.join(data_path, 'target_words.txt')).readlines()
+    data_train = json_load((os.path.join(data_path, 'data_train.json')))
+    data_dev = json_load((os.path.join(data_path, 'data_dev.json')))
+    data_test_500_rand1_seen = json_load((os.path.join(data_path, 'data_test_500_rand1_seen.json')))
+    data_test_500_rand1_unseen = json_load((os.path.join(data_path, 'data_test_500_rand1_unseen.json'))) #data_test_500_others
+    data_defi_c = json_load((os.path.join(data_path, 'data_defi_c.json')))
+    data_desc_c = json_load((os.path.join(data_path, 'data_desc_c.json')))
+    lines = lines_load(os.path.join(data_path, 'target_words.txt'))
     target_words = [line.strip() for line in lines]
     label_size = len(target_words)+2
     print('target_words (include <PAD><OOV>): ', label_size)
-    lines = open(os.path.join(data_path, 'lexname_all.txt')).readlines()
+    lines = lines_load(os.path.join(data_path, 'lexname_all.txt'))
     lexname_all = [line.strip() for line in lines]
     label_lexname_size = len(lexname_all)
     print('label_lexname_size: ', label_lexname_size)
-    lines = open(os.path.join(data_path, 'root_affix_freq.txt')).readlines()
+    lines = lines_load(os.path.join(data_path, 'root_affix_freq.txt'))
     rootaffix_freq = {}
     for line in lines:
         rootaffix_freq[line.strip().split()[0]] = int(line.strip().split()[1])
-    lines = open(os.path.join(data_path, 'rootaffix_all.txt')).readlines()
+    lines = lines_load(os.path.join(data_path, 'rootaffix_all.txt'))
     rootaffix_all = [line.strip() for line in lines]
-    lines = open(os.path.join(data_path, 'sememes_all.txt')).readlines()
+    lines = lines_load(os.path.join(data_path, 'sememes_all.txt'))
     sememes_all = [line.strip() for line in lines]
     label_sememe_size = len(sememes_all)+1
     print('label_sememe_size: ', label_sememe_size)
-    vec_inuse = json.load(open(os.path.join(data_path, 'vec_inuse.json')))
+    vec_inuse = json_load((os.path.join(data_path, 'vec_inuse.json')))
     vocab = list(vec_inuse)
     vocab_size = len(vocab)+2
     print('vocab (embeddings in use)(include <PAD><OOV>): ', vocab_size)
