@@ -12,6 +12,7 @@ class BiLSTM(torch.nn.Module):
         _, x_len_unsort_idx = torch.sort(x_len_sort_idx)
         x = x[x_len_sort_idx]
         x_len = x_len[x_len_sort_idx]
+        x_len = x_len.to("cpu")
         x_packed = torch.nn.utils.rnn.pack_padded_sequence(x, x_len, batch_first=True)
         # ht: T(num_layers*2, bat, hid) float32
         # ct: T(num_layers*2, bat, hid) float32
