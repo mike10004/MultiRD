@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import argparse, torch, gc, random, json
+from pathlib import Path
 from multird.data import MyDataset, load_data, label_multihot
 from multird.data import Manipulator
 from multird.model import Encoder
+import multird.utils
+from multird.utils import Checkpointer
+from multird.utils import History
 from tqdm import tqdm
 from multird.evaluate import evaluate, evaluate_test
 import numpy as np
 
-def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 128, epoch_num: int = 25, quiet: bool = False):
+def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 128, epoch_num: int = 25, quiet: bool = False, output_dir: Path = None):
+    output_dir = output_dir or Path("output")
+    history = History.create()
+    checkpointer = Checkpointer(output_dir, history, mode=mode)
     word2index, index2word, word2vec, index2each, label_size_each, data_idx_each = load_data(data_path, frequency)
     (label_size, label_lexname_size, label_rootaffix_size, label_sememe_size) = label_size_each
     (data_train_idx, data_dev_idx, data_test_500_seen_idx, data_test_500_unseen_idx, data_defi_c_idx, data_desc_c_idx) = data_idx_each
@@ -105,6 +113,7 @@ def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 12
             if valid_accu_10>best_valid_accu:
                 best_valid_accu = valid_accu_10
                 print('-----best_valid_accu-----')
+                checkpointer.checkpoint(model, epoch)
                 #torch.save(model, 'saved.model')
                 test_loss = 0
                 label_list = []
@@ -140,17 +149,20 @@ def _run():
     parser.add_argument('-m', '--mode', type=str, default='b')
     parser.add_argument('-sd', '--seed', type=int, default=543624)
     parser.add_argument("-d", "--data-path", metavar="DIR")
+    parser.add_argument("-o", "--output", metavar="DIR", help="output directory for models and results")
     args = parser.parse_args()
     setup_seed(args.seed)
     data_path = args.data_path or "./data"
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    output_dir = Path(args.output or os.path.join("checkpoints", multird.utils.timestamp()))
     main(data_path=data_path,
          device=device,
          mode=args.mode,
          frequency=args.frequency,
          batch_size=args.batch_size,
          epoch_num=args.epoch_num,
-         quiet=args.quiet)
+         quiet=args.quiet,
+         output_dir=output_dir)
     return 0
 
 
