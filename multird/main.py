@@ -9,7 +9,7 @@ from tqdm import tqdm
 from multird.evaluate import evaluate, evaluate_test
 import numpy as np
 
-def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 128, epoch_num: int = 25, verbose: bool = False):
+def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 128, epoch_num: int = 25, quiet: bool = False):
     word2index, index2word, word2vec, index2each, label_size_each, data_idx_each = load_data(data_path, frequency)
     (label_size, label_lexname_size, label_rootaffix_size, label_sememe_size) = label_size_each
     (data_train_idx, data_dev_idx, data_test_500_seen_idx, data_test_500_unseen_idx, data_defi_c_idx, data_desc_c_idx) = data_idx_each
@@ -68,7 +68,7 @@ def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 12
         train_loss = 0
         label_list = list()
         pred_list = list()
-        for words_t, definition_words_t in tqdm(train_dataloader, disable=verbose):
+        for words_t, definition_words_t in tqdm(train_dataloader, disable=quiet):
             optimizer.zero_grad()
             loss, _, indices = model('train', x=definition_words_t, w=words_t, ws=wd_sems, wl=wd_lex, wr=wd_ra, msk_s=mask_s, msk_l=mask_l, msk_r=mask_r, mode=mode)
             loss.backward()
@@ -89,7 +89,7 @@ def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 12
             valid_loss = 0
             label_list = []
             pred_list = []
-            for words_t, definition_words_t in tqdm(valid_dataloader, disable=verbose):
+            for words_t, definition_words_t in tqdm(valid_dataloader, disable=quiet):
                 loss, _, indices = model('train', x=definition_words_t, w=words_t, ws=wd_sems, wl=wd_lex, wr=wd_ra, msk_s=mask_s, msk_l=mask_l, msk_r=mask_r, mode=mode)
                 predicted = indices[:, :100].detach().cpu().numpy().tolist()
                 valid_loss += loss.item()
@@ -109,7 +109,7 @@ def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 12
                 test_loss = 0
                 label_list = []
                 pred_list = []
-                for words_t, definition_words_t in tqdm(test_dataloader, disable=verbose):
+                for words_t, definition_words_t in tqdm(test_dataloader, disable=quiet):
                     indices = model('test', x=definition_words_t, w=words_t, ws=wd_sems, wl=wd_lex, wr=wd_ra, msk_s=mask_s, msk_l=mask_l, msk_r=mask_r, mode=mode)
                     predicted = indices[:, :1000].detach().cpu().numpy().tolist()
                     label_list.extend(words_t.detach().cpu().numpy())
@@ -135,7 +135,7 @@ def _run():
     parser.add_argument('-f', '--frequency', type=int, default=20) # 5~25
     parser.add_argument('-b', '--batch_size', type=int, default=128) # 64
     parser.add_argument('-e', '--epoch_num', type=int, default=25) # 10
-    parser.add_argument('-v', '--verbose',default=True, action='store_false')
+    parser.add_argument('-q', '--quiet', default=False, action='store_true')
     parser.add_argument('-g', '--gpu', type=str, default='0')
     parser.add_argument('-m', '--mode', type=str, default='b')
     parser.add_argument('-sd', '--seed', type=int, default=543624)
@@ -150,7 +150,7 @@ def _run():
          frequency=args.frequency,
          batch_size=args.batch_size,
          epoch_num=args.epoch_num,
-         verbose=args.verbose)
+         quiet=args.quiet)
     return 0
 
 
