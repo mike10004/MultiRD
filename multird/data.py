@@ -4,7 +4,6 @@ import torch.utils.data
 import numpy as np
 import json
 data_path = os.path.join('..', 'data')
-device = torch.device('cuda')
 
 class MyDataset(torch.utils.data.Dataset): 
     def __init__(self, instances):
@@ -145,29 +144,34 @@ def label_multihot(labels, num):
                 break
             sm[i, s] = 1
     return sm
-    
-def my_collate_fn(batch):
-    words = [instance['word'] for instance in batch]
-    definition_words = [instance['definition_words'] for instance in batch]
-    words_t = torch.tensor(np.array(words), dtype=torch.int64, device=device)
-    definition_words_t = torch.tensor(build_sentence_numpy(definition_words), dtype=torch.int64, device=device)
-    return words_t, definition_words_t
-    
-def word2feature(dataset, word_num, feature_num, feature_name):
-    max_feature_num = max([len(instance[feature_name]) for instance in dataset])
-    ret = np.zeros((word_num, max_feature_num), dtype=np.int64)
-    ret.fill(feature_num)
-    for instance in dataset:
-        if ret[instance['word'], 0] != feature_num: 
-            continue # this target_words has been given a feature mapping, because same word with different definition in dataset
-        feature = instance[feature_name]
-        ret[instance['word'], :len(feature)] = np.array(feature)
-    return torch.tensor(ret, dtype=torch.int64, device=device)
-    
-def mask_noFeature(label_size, wd2fea, feature_num):
-    mask_nofea = torch.zeros(label_size, dtype=torch.float32, device=device)
-    for i in range(label_size):
-        feas = set(wd2fea[i].detach().cpu().numpy().tolist())-set([feature_num])
-        if len(feas)==0:
-            mask_nofea[i] = 1
-    return mask_nofea
+
+class Manipulator:
+
+    def __init__(self, device: str):
+        self.device = device
+
+    def my_collate_fn(self, batch):
+        words = [instance['word'] for instance in batch]
+        definition_words = [instance['definition_words'] for instance in batch]
+        words_t = torch.tensor(np.array(words), dtype=torch.int64, device=self.device)
+        definition_words_t = torch.tensor(build_sentence_numpy(definition_words), dtype=torch.int64, device=self.device)
+        return words_t, definition_words_t
+
+    def word2feature(self, dataset, word_num, feature_num, feature_name):
+        max_feature_num = max([len(instance[feature_name]) for instance in dataset])
+        ret = np.zeros((word_num, max_feature_num), dtype=np.int64)
+        ret.fill(feature_num)
+        for instance in dataset:
+            if ret[instance['word'], 0] != feature_num:
+                continue # this target_words has been given a feature mapping, because same word with different definition in dataset
+            feature = instance[feature_name]
+            ret[instance['word'], :len(feature)] = np.array(feature)
+        return torch.tensor(ret, dtype=torch.int64, device=self.device)
+
+    def mask_noFeature(self, label_size, wd2fea, feature_num):
+        mask_nofea = torch.zeros(label_size, dtype=torch.float32, device=self.device)
+        for i in range(label_size):
+            feas = set(wd2fea[i].detach().cpu().numpy().tolist())-set([feature_num])
+            if len(feas)==0:
+                mask_nofea[i] = 1
+        return mask_nofea

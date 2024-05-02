@@ -1,5 +1,5 @@
 import json
-from evaluate import evaluate_test
+from multird.evaluate import evaluate_test
 import argparse
 
 def main(mode):

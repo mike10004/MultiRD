@@ -1,11 +1,15 @@
-import argparse, torch, gc, os, random, json
-from data import MyDataset, load_data, my_collate_fn, device, word2feature, label_multihot, mask_noFeature
-from model import Encoder
+#!/usr/bin/env python3
+
+import sys
+import argparse, torch, gc, random, json
+from multird.data import MyDataset, load_data, label_multihot
+from multird.data import Manipulator
+from multird.model import Encoder
 from tqdm import tqdm
-from evaluate import evaluate, evaluate_test
+from multird.evaluate import evaluate, evaluate_test
 import numpy as np
 
-def main(frequency, batch_size, epoch_num, verbose, MODE):
+def main(frequency, batch_size, epoch_num, verbose, MODE, device):
     mode = MODE
     word2index, index2word, word2vec, index2each, label_size_each, data_idx_each = load_data(frequency)
     (label_size, label_lexname_size, label_rootaffix_size, label_sememe_size) = label_size_each
@@ -16,9 +20,10 @@ def main(frequency, batch_size, epoch_num, verbose, MODE):
     valid_dataset = MyDataset(data_dev_idx)
     train_dataset = MyDataset(data_train_idx + data_defi_c_idx)
 
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=my_collate_fn)
-    valid_dataloader = torch.utils.data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=my_collate_fn)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=my_collate_fn)
+    m = Manipulator(device)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=m.my_collate_fn)
+    valid_dataloader = torch.utils.data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=m.my_collate_fn)
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=m.my_collate_fn)
     
     print('DataLoader prepared. Batch_size [%d]'%batch_size)
     print('Train dataset: ', len(train_dataset))
@@ -27,22 +32,32 @@ def main(frequency, batch_size, epoch_num, verbose, MODE):
     data_all_idx = data_train_idx + data_dev_idx + data_test_500_seen_idx + data_test_500_unseen_idx + data_defi_c_idx
     
     sememe_num = len(index2sememe)
-    wd2sem = word2feature(data_all_idx, label_size, sememe_num, 'sememes') # label_size, not len(word2index). we only use target_words' feature
+    wd2sem = m.word2feature(data_all_idx, label_size, sememe_num, 'sememes') # label_size, not len(word2index). we only use target_words' feature
     wd_sems = label_multihot(wd2sem, sememe_num)
     wd_sems = torch.from_numpy(np.array(wd_sems)).to(device) #torch.from_numpy(np.array(wd_sems[:label_size])).to(device)
     lexname_num = len(index2lexname)
-    wd2lex = word2feature(data_all_idx, label_size, lexname_num, 'lexnames') 
+    wd2lex = m.word2feature(data_all_idx, label_size, lexname_num, 'lexnames')
     wd_lex = label_multihot(wd2lex, lexname_num)
     wd_lex = torch.from_numpy(np.array(wd_lex)).to(device)
     rootaffix_num = len(index2rootaffix)
-    wd2ra = word2feature(data_all_idx, label_size, rootaffix_num, 'root_affix') 
+    wd2ra = m.word2feature(data_all_idx, label_size, rootaffix_num, 'root_affix')
     wd_ra = label_multihot(wd2ra, rootaffix_num)
     wd_ra = torch.from_numpy(np.array(wd_ra)).to(device)
-    mask_s = mask_noFeature(label_size, wd2sem, sememe_num)
-    mask_l = mask_noFeature(label_size, wd2lex, lexname_num)
-    mask_r = mask_noFeature(label_size, wd2ra, rootaffix_num)
+    mask_s = m.mask_noFeature(label_size, wd2sem, sememe_num)
+    mask_l = m.mask_noFeature(label_size, wd2lex, lexname_num)
+    mask_r = m.mask_noFeature(label_size, wd2ra, rootaffix_num)
     
-    model = Encoder(vocab_size=len(word2index), embed_dim=word2vec.shape[1], hidden_dim=300, layers=1, class_num=label_size, sememe_num=sememe_num, lexname_num=lexname_num, rootaffix_num=rootaffix_num)
+    model = Encoder(
+        vocab_size=len(word2index),
+        embed_dim=word2vec.shape[1],
+        hidden_dim=300,
+        layers=1,
+        class_num=label_size,
+        sememe_num=sememe_num,
+        lexname_num=lexname_num,
+        rootaffix_num=rootaffix_num,
+        device=device,
+    )
     model.embedding.weight.data = torch.from_numpy(word2vec)
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001) # Adam
@@ -116,7 +131,7 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-if __name__ == '__main__':
+def _run():
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--frequency', type=int, default=20) # 5~25
     parser.add_argument('-b', '--batch_size', type=int, default=128) # 64
@@ -127,5 +142,10 @@ if __name__ == '__main__':
     parser.add_argument('-sd', '--seed', type=int, default=543624)
     args = parser.parse_args()
     setup_seed(args.seed)
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-    main(args.frequency, args.batch_size, args.epoch_num, args.verbose, args.mode)
+    device = f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu"
+    main(args.frequency, args.batch_size, args.epoch_num, args.verbose, args.mode, device=device)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(_run())

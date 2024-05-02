@@ -1,6 +1,4 @@
 import torch
-from data import device
-import numpy as np
 
 class BiLSTM(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim, num_layers=1):
@@ -26,7 +24,7 @@ class BiLSTM(torch.nn.Module):
         return h, (ht, ct)
         
 class Encoder(torch.nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim, layers, class_num, sememe_num, lexname_num, rootaffix_num):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, layers, class_num, sememe_num, lexname_num, rootaffix_num, device):
         super().__init__()
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
@@ -46,6 +44,7 @@ class Encoder(torch.nn.Module):
         self.fc_r = torch.nn.Linear(self.hidden_dim*2, self.rootaffix_num)
         self.loss = torch.nn.CrossEntropyLoss()
         self.relu = torch.nn.ReLU()
+        self.device = device
 
         
     def forward(self, operation, x=None, w=None, ws=None, wl=None, wr=None, msk_s=None, msk_l=None, msk_r=None, mode=None):
@@ -112,7 +111,7 @@ class Encoder(torch.nn.Module):
         # fine-tune depended on the target word shouldn't exist in the definition.
         #score_res = score.clone().detach()
         mask1 = torch.lt(x, self.class_num).to(torch.int64)
-        mask2 = torch.ones((score.shape[0], score.shape[1]), dtype=torch.float32, device=device)
+        mask2 = torch.ones((score.shape[0], score.shape[1]), dtype=torch.float32, device=self.device)
         for i in range(x.shape[0]):
             mask2[i][x[i]*mask1[i]] = 0.
         score = score * mask2 + (-1e6)*(1-mask2)
