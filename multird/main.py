@@ -90,8 +90,11 @@ def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 12
         del label_list
         del pred_list
         gc.collect()
-        print('train_loss: ', train_loss/len(train_dataset))
+        train_loss_mean = train_loss / len(train_dataset)
+        print('train_loss: ', train_loss_mean)
         print('train_accu(1/10/100): %.2f %.2F %.2f'%(train_accu_1, train_accu_10, train_accu_100))
+        history.train.loss.append(train_loss_mean)
+        history.train.add_accuracy(train_accu_1, train_accu_10, train_accu_100)
         model.eval()
         with torch.no_grad():
             valid_loss = 0
@@ -104,8 +107,11 @@ def main(data_path: str, mode: str, device, frequency: int, batch_size: int = 12
                 label_list.extend(words_t.detach().cpu().numpy())
                 pred_list.extend(predicted)
             valid_accu_1, valid_accu_10, valid_accu_100 = evaluate(label_list, pred_list)
-            print('valid_loss: ', valid_loss/len(valid_dataset))
+            valid_loss_mean = valid_loss / len(valid_dataset)
+            print('valid_loss: ', valid_loss_mean)
             print('valid_accu(1/10/100): %.2f %.2F %.2f'%(valid_accu_1, valid_accu_10, valid_accu_100))
+            history.valid.loss.append(valid_loss_mean)
+            history.valid.add_accuracy(valid_accu_1, valid_accu_10, valid_accu_100)
             del label_list
             del pred_list
             gc.collect()

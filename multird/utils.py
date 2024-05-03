@@ -16,6 +16,9 @@ class Trajectory(NamedTuple):
     def create() -> 'Trajectory':
         return Trajectory([], [])
 
+    def add_accuracy(self, acc1: float, acc10: float, acc100: float):
+        self.accuracy.append({1: acc1, 10: acc10, 100: acc100})
+
 
 class History(NamedTuple):
 
